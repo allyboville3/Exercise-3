@@ -1,0 +1,177 @@
+---
+title: "Exercise 3"
+author: "Alexandra Boville"
+date: "2024-02-12"
+output: html_document
+---
+
+# Exercise 3 - Explore and Wrangle Data
+
+## Looking at the data
+
+### Load libraries....
+```{r, warning = FALSE}
+library(tidyverse)
+library(ggplot2)
+
+```
+
+### Create link to dataset and load data....
+```{r, warning = FALSE}
+f <- "https://raw.githubusercontent.com/difiore/ada-2024-datasets/main/data-wrangling.csv"
+
+d <- read_csv(f, col_names = TRUE)
+head(d)
+```
+
+### Summarizing data, identifying column names to understand what information this dataset contains
+```{r, warning = FALSE}
+names(d)
+```
+
+
+## Creating New Data Columns
+
+### Creating a new column in the dataset called BSD (Body Size Dimorphism) that is the ratio of the average male body mass to average female body mass
+```{r}
+d <- d %>%
+  mutate(BSD = Body_mass_male_mean/Body_mass_female_mean)
+d
+```
+### Creating a new column in the dataset called sex_ratio that is the ratio of the number of adult females to the number of adult males in a typical group
+```{r}
+d <- d %>%
+  mutate(sex_ratio = AdultMales/AdultFemale)
+d
+```
+
+### Creating a new variable called DI (defensibility index) which is the ratio of day range length to the diameter of the home range. For this assignment we can assume that the home range is a circle. 
+
+Note: Home range in this dataset is in km2
+
+Some Helpful Equations: 
+Area of a circle = pi x r^2
+The diameter of a circle is 2r
+
+First we calculate Home range (HR) and use this vector to create the new coloumn DI
+```{r}
+HR <- sqrt(d$HomeRange_km2/pi)
+
+d <- d %>%
+  mutate(DI = DayLength_km/(2*HR))
+d
+
+```
+
+## Plotting this Data
+
+### Using ggplot to plot the relationship between Day Length and Time Spent Moving for all of the data
+```{r}
+p <- d %>%
+    ggplot(aes(x = Move, y = DayLength_km)) +
+    geom_point(colour = "blue" , size = 1.5)
+p
+```
+
+### Using ggplot to plot the relationship between Day Length and Time Spent Moving by Family
+```{r}
+d %>%
+  ggplot(aes(x = Move, y = DayLength_km), groups = Family) +
+  geom_point(aes(colour = factor(Family)))
+
+```
+
+Species that live in larger groups don't necessarily travel farther. There appears to be some outlier in the data for species that moved for around 25 hours(?) appear to do over a longer day range length but movement for a longer amount of time does not change with day range length. 
+
+Cercopithecids have the longest day range lengths (at 25) and Indriid and Lemurids move for about 25 or less and have the same day range lengths. Looking across all of the families only Cercopithecids and Hominids exceed a day range length of 3 km but has no relationsship with duration of movement. 
+
+This data would benefit from being transformed by removing outlier points and also reducing the plot axes to more properly frame the data presented. 
+
+
+
+### Plotting the relationship between day range length and time group size with all data
+```{r}
+p <- d %>%
+    ggplot(aes(x = Social, y = DayLength_km)) +
+    geom_point(colour = "black" , size = 1.5)
+p
+```
+
+### Plotting the relationship between day range length and time group size by Family
+```{r}
+d %>%
+  ggplot(aes(x = Social, y = DayLength_km), groups = Family) +
+  geom_point(aes(colour = factor(Family)))
+```
+
+There is no distinct linear relationship between time spent in groups and day range length. Species with larger groups do not always travel further. Species where this is the case appear to be outliers in this dataset. When grouped by family the majority of these outliers are Cercopithecids but there is no clear family relationship between time spent in groups and day range length. 
+
+Again I would transform this data to remove these outliers. Log tranforming all of the data doesn't establish any relationship. 
+
+
+### Plotting the relationship between Body Size Dimorphism and Canine Dimorphism
+```{r}
+p <- d %>%
+    ggplot(aes(x = log(BSD), y = log(Canine_Dimorphism))) +
+    geom_point(colour = "blue" , size = 1.5)
+p
+
+p <- d %>%
+    ggplot(aes(x = BSD, y = Canine_Dimorphism)) +
+    geom_point(colour = "red" , size = 1.5)
+p
+```
+
+### Plotting the relationship between Body Size Dimorphism and Canine Dimorphism by Family
+```{r}
+d %>%
+  ggplot(aes(x = BSD, y = Canine_Dimorphism), groups = Family) +
+  geom_point(aes(colour = factor(Family)))
+```
+
+Taxa with greater size dimorphism do mainly show greater canine dimorphism as well. This also seems to appear bewteen families as well with families that exhibit greater size dimorphism also exhibit greater canine dimorphism. 
+
+There are maybe an outlying point or two but without transforming the data you can visually tell there is a stronger linear relationship relative to the previous plots with time and day range length. Log transforming the data more clearly shows this relationship (blue plot above). 
+
+
+## Creating New Columns Using Conditional Expressions
+
+
+```{r}
+d <- d %>%
+  mutate(diet_strategy = case_when(Fruit >= 50 ~"frugivore",
+                                   Leaves >= 50 ~ "folivore", 
+                                   .default = "omnivore"))
+d
+```
+
+### Creating a boxplot showing GroupSize for each diet strategy
+```{r}
+p <- d%>%
+  ggplot(aes(x = diet_strategy, y = MeanGroupSize, fill = diet_strategy)) +
+  geom_boxplot(na.rm = TRUE) +
+  ylab("Mean Group Size") +
+  theme_bw() +
+  theme(panel.grid = element_blank())
+
+p
+```
+
+Frugivores do not live in larger groups than folivores!!
+
+
+## More Data Analysis!
+
+### Adding a Variable called Binomial that concatenates Genus and Species and looking at Average brain Size for each Family 
+```{r}
+d <- d %>%
+  mutate(Binomial = paste(Genus, Species, sep = " ")) %>%
+  select(Binomial, Family, Brain_Size_Species_Mean, Body_mass_male_mean) %>%
+  group_by(Family) %>%
+  summarize(avg_brain_size = mean(Brain_Size_Species_Mean, na.rm = TRUE), avg_male_mass = mean(Body_mass_male_mean,
+        na.rm = TRUE), na.rm = TRUE) %>%
+  arrange(avg_brain_size)
+d
+```
+
+
